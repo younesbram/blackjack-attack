@@ -5,6 +5,7 @@ from openai import OpenAI
 
 client = OpenAI(
     # This is the default and can be omitted
+    api_key="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",
 )
 
 # Card Counting Systems Values
@@ -60,16 +61,16 @@ def get_blackjack_strategy(player_cards, dealer_card, true_count, options=None):
 def get_gpt4_blackjack_advice(player_cards, dealer_card, basic_strategy_advice, counts, true_counts, decks_remaining):
     player_cards_formatted = ", ".join(player_cards)
     user_message = (
-        f"I am trying to play blackjack and learn card counting. I am currently at home practicing. "
+        f"You are an expert helper of blackjack card counting. I am currently at home practicing. "
         f"My cards are: {player_cards_formatted}. The dealer's upcard is: {dealer_card}. "
         f"My basic strategy tells me to: {basic_strategy_advice}. "
         f"My current counts and true counts for various systems are {counts} and {true_counts} respectively. "
-        f"The number of decks remaining is approximately {decks_remaining}. "
-        f"Please provide concise advice based on each play style from Hi-Lo, Omega II, and Wong Halves."
+        f"The number of decks remaining is {decks_remaining}. "
+        f"Please provide concise advice based on each play style from Hi-Lo, Omega II, and Wong Halves. Only give me expert advice and deviations if there are any."
     )
 
     messages = [
-        {"role": "system", "content": "You are an expert blackjack player well versed in deviations from basic strategy according to Hi-Lo, Omega II, and Wong Halves."},
+        {"role": "system", "content": "You are an expert blackjack player who read multiple blackjack attack books well versed in deviations from basic strategy according to Hi-Lo, Omega II, and Wong Halves."},
         {"role": "user", "content": user_message}
     ]
 
@@ -118,14 +119,41 @@ def main():
         # Get the recommended strategy
         strategy = get_blackjack_strategy(player_cards, dealer_card, hi_lo_true_count)
         
+        print("\nPlayer Cards: ", player_cards)
+        print("Dealer Card: ", dealer_card)
         print("\nRecommended Strategy: ", strategy)
         print(f"Current Counts: {counts}")
         print("True Counts: ", {k: round(v, 2) for k, v in true_counts.items()})
         print(f"Deck Penetration: {100 * (1 - total_decks / initial_decks):.2f}%")
         print(f"Estimated Remaining Decks: {total_decks:.2f}")
 
-        gpt4_advice = get_gpt4_blackjack_advice(player_cards, dealer_card, strategy, counts, true_counts, total_decks)
-        print("\nGPT-4 Blackjack Advice: ", gpt4_advice)
+         # Ask if the player is still in play and update cards if necessary
+        while True:
+            in_play = input("Are you still in play? (yes/no): ").strip().lower()
+            if in_play == "no":
+                break
+            new_card = input("Enter the new card you got, or 'none' if you are out of the game: ").strip()
+            if new_card.lower() == "none":
+                break
+            player_cards.append(new_card)
+            update_counts(new_card, counts)
+            cards_dealt += 1
+            # Recalculate total decks and true counts
+            total_decks = initial_decks - (cards_dealt / 52)
+            total_decks = max(total_decks, 0.5)
+            true_counts = {key: calculate_true_count(value, total_decks) for key, value in counts.items()}
+            strategy = get_blackjack_strategy(player_cards, dealer_card, hi_lo_true_count)
+            print("\nPlayer Cards: ", player_cards)
+            print("Dealer Card: ", dealer_card)
+            print("\nUpdated Strategy: ", strategy)
+            print(f"Updated Current Counts: {counts}")
+            print("Updated True Counts: ", {k: round(v, 2) for k, v in true_counts.items()})
+            print(f"Updated Deck Penetration: {100 * (1 - total_decks / initial_decks):.2f}%")
+            print(f"Updated Estimated Remaining Decks: {total_decks:.2f}")
+
+        if input("Do you want GPT-4 advice? (yes/no) ").lower() == "yes":
+            gpt4_advice = get_gpt4_blackjack_advice(player_cards, dealer_card, strategy, counts, true_counts, total_decks)
+            print("\nGPT-4 Blackjack Advice: ", gpt4_advice)
 
          # Ask for new cards dealt in the round
         new_other_players_cards = input("New cards : ").split(',')
@@ -141,7 +169,11 @@ def main():
         total_decks = initial_decks - (cards_dealt / 52)
         total_decks = max(total_decks, 0.5)
         true_counts = {key: calculate_true_count(value, total_decks) for key, value in counts.items()}
-
+        print("\nUpdated Current Counts: ", counts)
+        print("Updated True Counts: ", {k: round(v, 2) for k, v in true_counts.items()})
+        print(f"Updated Deck Penetration: {100 * (1 - total_decks / initial_decks):.2f}%")
+        print(f"Updated Estimated Remaining Decks: {total_decks:.2f}")
+        print("\nBet accordingly!")
 
 if __name__ == "__main__":
     main()
